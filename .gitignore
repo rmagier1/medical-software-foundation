@@ -167,3 +167,11 @@ cython_debug/
 
 # vi/vim swap files
 *.swp
+
+# Data Migations
+# Ignore any PHI or secrets
+data-migrations/data_migrations/config.ini
+data-migrations/config.ini
+data-migrations/data_migrations/*/PHI/**
+data-migrations/data_migrations/*/results/PHI/**
+
