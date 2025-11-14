@@ -19,13 +19,13 @@ class MedicationLoader(MedicationLoaderMixin, MedicationReview):
     def __init__(self, environment, *args, **kwargs):
         self.data_type = 'medications'
 
-        self.patient_map_file = 'PHI/patient_id_map.json'
+        self.patient_map_file = 'PHI/patient_ids_map.json'
         self.note_map_file = "mappings/historical_note_map.json"
         self.medication_map_file = "mappings/medication_coding_map.json"
-        self.json_file = f"PHI/{self.data_type}.json"
+        self.json_file = f"PHI/{self.data_type}_oct.json"
         self.json_file_prefix = f"PHI/medications/{self.data_type}_"
         self.csv_file = f'PHI/{self.data_type}.csv'
-        self.customer_file = f'PHI/customer_{self.data_type}.csv'
+        self.customer_file = f'PHI/patient_prescriptions_export_202510.csv'
         self.validation_error_file = f'results/errored_{self.data_type}_validation.json'
         self.error_file = f'results/errored_{self.data_type}.csv'
         self.done_file = f'results/done_{self.data_type}.csv'
@@ -38,12 +38,12 @@ class MedicationLoader(MedicationLoaderMixin, MedicationReview):
         # self.done_records = fetch_complete_csv_rows(self.done_file)
         self.patient_map = fetch_from_json(self.patient_map_file)
         # self.note_map = fetch_from_json(self.note_map_file)
-        self.doctor_map = fetch_from_json("mappings/doctor_map.json")
+        # self.doctor_map = fetch_from_json("mappings/doctor_map.json")
         self.medication_map = fetch_from_json(self.medication_map_file)
 
         # any defaults needed for mapping/creation
-        self.default_location = "24b50061-cdb7-47ec-85ea-c1b41f9805b3"
-        self.default_note_type_name = "Vendor Data Migration"
+        # self.default_location = "24b50061-cdb7-47ec-85ea-c1b41f9805b3"
+        # self.default_note_type_name = "Vendor Data Migration"
         super().__init__(*args, **kwargs)
 
     def create_medication_map(self):
@@ -118,7 +118,7 @@ class MedicationLoader(MedicationLoaderMixin, MedicationReview):
                 try:
                     canvas_patient_key, canvas_patient_id = self.map_patient(patient_id)
                 except BaseException as e:
-                    self.ignore_row(row['Prescription ID'], f"No patient {patient_id} to map internal note {row['Prescription ID']}")
+                    self.ignore_row(row['Prescription ID'], f"No patient {patient_id} to map prescription {row['Prescription ID']}")
                     continue
 
                 medication_text = row["Name"]
@@ -162,10 +162,10 @@ class MedicationLoader(MedicationLoaderMixin, MedicationReview):
                         "SIG": directions,
                     })
 
-        chunk_size = 100000
-        for idx, chunk in enumerate(self.chunk_dict(data, chunk_size), start=1):
-            file_path = f"{self.json_file_prefix}{idx}.json"
-            write_to_json(file_path, chunk)
+        # chunk_size = 100000
+        # for idx, chunk in enumerate(self.chunk_dict(data, chunk_size), start=1):
+        #     file_path = f"{self.json_file_prefix}{idx}.json"
+        #     write_to_json(file_path, chunk)
 
         write_to_json(self.json_file, data)
 
@@ -263,6 +263,7 @@ class MedicationLoader(MedicationLoaderMixin, MedicationReview):
 
         count = 0
 
+        print(Path(f"PHI/{self.data_type}"))
         for file in Path(f"PHI/{self.data_type}").glob("medications_*.json"):
             file_split = str(file).split('/')
             file_split[-1] = f"combined_{file_split[-1]}"
@@ -321,10 +322,29 @@ class MedicationLoader(MedicationLoaderMixin, MedicationReview):
 
         print(f"Unique medications to create {count}")
 
+    def find_dups(self, file, _map_file):
+        _map = fetch_from_json(_map_file)
+
+
+        with open(file, "r") as f:
+            data = json.load(f)
+            dups = defaultdict(list)
+            not_dups = defaultdict(list)
+
+            for patient_id, records in data.items():
+                for record in records:
+                    if record['ID'] in _map:
+                        dups[patient_id].append(record)
+                    else:
+                        not_dups[patient_id].append(record)
+
+        file_path = file.split('.json')[0]
+        write_to_json(f'{file_path}_dups.json', dups)
+        write_to_json(f'{file_path}_not_dups.json', not_dups)
 
 if __name__ == '__main__':
     # TODO: Change to your environment name from config.ini
-    loader = MedicationLoader(environment='hellowisp')
+    loader = MedicationLoader(environment='newinstance-demo')
     delimiter = ','
 
     # Create the medication map from the unique set of medications found in the data source
@@ -342,7 +362,8 @@ if __name__ == '__main__':
     # to the template CSV loader
     # loader.make_json(delimiter=delimiter)
     # loader.sort_and_combine_json()
-    loader.combine_json_file()
+    # loader.combine_json_file()
+    loader.find_dups("PHI/medication/combined_medications_oct.json", "PHI/done_medication_statement_command.json")
     
     # Step 2: Validate the CSV values with the Canvas template data migration rules
     # valid_rows = loader.validate(delimiter=delimiter)

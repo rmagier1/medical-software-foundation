@@ -16,19 +16,19 @@ class VisualExamFindingsLoader(VisualExamFindingsMixin):
         self.patient_map_file = 'PHI/patient_ids_map.json'
         self.json_file = f"PHI/{self.data_type}.json"
         self.csv_file = f'PHI/images_{self.data_type}.csv'
-        self.customer_file = f'PHI/customer_{self.data_type}.csv'
+        self.customer_file = f'PHI/patient_symptoms_images_export_20251024_155141.csv'
         self.validation_error_file = f'results/errored_{self.data_type}_validation.json'
         self.error_file = f'results/errored_{self.data_type}.csv'
-        self.done_file = f'results/done_{self.data_type}.csv'
+        self.done_file = f'PHI/visual_exam_finding_command_map.csv'
         self.ignore_file = f'results/ignored_{self.data_type}.csv'
 
         self.environment = environment
-        self.fumage_helper = load_fhir_settings(environment)
+        # self.fumage_helper = load_fhir_settings(environment)
 
-        self.done_records = fetch_complete_csv_rows(self.done_file)
-        self.patient_map = fetch_from_json(self.patient_map_file)
-        self.notes_map_file = f"mappings/notes_map.json"
-        self.note_map = fetch_from_json(self.notes_map_file)
+        self.done_records = fetch_complete_csv_rows(self.done_file, key='source_system_identifier', delimiter=',')
+        # self.patient_map = fetch_from_json(self.patient_map_file)
+        # self.notes_map_file = f"mappings/notes_map.json"
+        # self.note_map = fetch_from_json(self.notes_map_file)
 
         self.images_dir = "PHI/images/"
 
@@ -55,12 +55,16 @@ class VisualExamFindingsLoader(VisualExamFindingsMixin):
             with open(self.customer_file, 'r') as file:
                 reader = csv.DictReader(file, delimiter=delimiter)
                 for row in reader:
+                    if row["Unique ID"] in self.done_records:
+                        print(f"IGNORING {row}")
+                        continue
+
                     title = row['Title']
                     date = row['Uploaded At']
                     if date:
                         title += f' ({arrow.get(date).format("YYYY-MM-DD hh:mm:ss [UTC]")})'
 
-                    file = row.get("JPEG/PNG Image", "").replace("canvas_export/20250915_211439/patient_symptoms_images/", "")  # path to the image file
+                    file = row.get("JPEG/PNG Image", "").replace("canvas_export/20251024_155141/patient_symptoms_images/", "")  # path to the image file
                     if convert_image:
                         file = f'{self.images_dir}{file}'
 
@@ -89,6 +93,6 @@ if __name__ == '__main__':
     loader = VisualExamFindingsLoader(environment='hellowisp')
     delimiter = ','
     
-    loader.make_csv(delimiter=delimiter, convert_image=True)
+    loader.make_csv(delimiter=delimiter, convert_image=False)
     #valid_rows = loader.validate(delimiter=delimiter)
     #loader.load(valid_rows, note_kwargs={"encounter_start_time": "2025-09-30T09:00:00-04:00"})

@@ -15,7 +15,7 @@ class PlanNotesLoader(PlanLoaderMixin):
     def __init__(self, environment, file_num, *args, **kwargs):
         self.data_type = "plan_notes"
         self.patient_map_file = 'PHI/patient_id_map.json'
-        self.original_csv_file = f'PHI/customer_{self.data_type}.csv'
+        self.original_csv_file = f'PHI/provider_notes_export_20251024_152810.csv'
         self.json_file_prefix = f"PHI/{self.data_type}/{self.data_type}_"
         # self.json_file = f"PHI/{self.data_type}/{self.data_type}_{file_num}.json"
         self.json_file = f"PHI/{self.data_type}.json"
@@ -27,24 +27,24 @@ class PlanNotesLoader(PlanLoaderMixin):
         self.validation_error_file = f'results/errored_{self.data_type}_validation.json'
 
         self.environment = environment
-        self.fumage_helper = load_fhir_settings(environment)
+        # self.fumage_helper = load_fhir_settings(environment)
 
         self.notes_map_file = f"PHI/{self.data_type}/notes_map_{file_num}.json"
         #self.notes_map = fetch_from_json(self.notes_map_file)
         #self.doctor_map = fetch_from_json("mappings/doctor_map.json")
         #self.done_records = fetch_complete_csv_rows(self.done_file)
         #self.ignore_records = fetch_complete_csv_rows(self.ignore_file)
-        self.patient_map = fetch_from_json(self.patient_map_file) 
+        #self.patient_map = fetch_from_json(self.patient_map_file) 
 
 
-        self.default_note_type_name = "Historical Data Migration"
-        self.default_location = "29e0cff2-fbd8-4add-8a9a-7aa2d9e43594"
-        self.note_attributes = {
-            "note_type_name": self.default_note_type_name,
-            "provider_key": "5eede137ecfe4124b8b773040e33be14",
-            "encounter_start_time": "2025-09-30T09:00:00-04:00", # 9am on go live date
-            "practice_location_key": self.default_location,
-        }
+        # self.default_note_type_name = "Historical Data Migration"
+        # self.default_location = "29e0cff2-fbd8-4add-8a9a-7aa2d9e43594"
+        # self.note_attributes = {
+        #     "note_type_name": self.default_note_type_name,
+        #     "provider_key": "5eede137ecfe4124b8b773040e33be14",
+        #     "encounter_start_time": "2025-09-30T09:00:00-04:00", # 9am on go live date
+        #     "practice_location_key": self.default_location,
+        # }
 
     def chunk_dict(self, d, size):
         """Yield successive chunks from a dictionary."""
@@ -152,8 +152,8 @@ if __name__ == '__main__':
     delimiter = ','
 
     # Convert customer file to the template CSV loader
-    # loader.make_json(delimiter=delimiter)
+    loader.make_json(delimiter=delimiter)
     
     #loader.load()
 
-    loader.find_ignoring_records()
+    # loader.find_ignoring_records()

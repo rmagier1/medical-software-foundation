@@ -127,10 +127,11 @@ if __name__ == '__main__':
     delimiter = ','
 
     # Make diff file
-    #loader.make_csv_diff(original_files=['PHI/patients_july.csv', 'PHI/patients_sep.csv'], latest_file='PHI/patients_oct.csv')
+    # loader.make_csv_diff(original_files=['PHI/patients_july.csv', 'PHI/patients_sep.csv', 'PHI/patients_oct.csv'], latest_file='PHI/patients_oct_24.csv')
 
     # Convert customer file to the template CSV loader
-    loader.make_csv(delimiter=delimiter, csv_file="PHI/customer_patients_new_oct.csv", output_file="PHI/patients_new_oct.csv")
+    loader.make_csv(delimiter=delimiter, csv_file="PHI/customer_patients_new_oct_24.csv", output_file="PHI/patients_new_oct_24.csv")
+    loader.make_csv(delimiter=delimiter, csv_file="PHI/customer_patients_update_oct_24.csv", output_file="PHI/patients_update_oct_24.csv")
 
     # Validate the CSV values with the Canvas template data migration rules
     # valid_rows = loader.validate(delimiter=delimiter, error_use_identifier='SWA patient ID')

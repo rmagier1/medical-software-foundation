@@ -452,7 +452,7 @@ class Command(BaseCommand):
 
             try:
                 file = self.get_s3_file(
-                    f"images/patient_symptoms_images/{row['Image']}",
+                    f"images/2025-10-24/{row['Image']}",
                     convert_csv=False,
                     return_empty=False,
                 )
@@ -560,7 +560,7 @@ class Command(BaseCommand):
                         original_sig = sig_text
 
                     # Only apply formatting if original is over 255 characters
-                    if len(original_sig) > 255:
+                    if len(original_sig) > 1000:
                         # Remove "Directions:" prefix if present
                         sig_text = sig_text.replace("Directions:", "").strip()
 
@@ -582,7 +582,7 @@ class Command(BaseCommand):
                         full_sig = f"{sig_text}\n{formatted_dates}" if formatted_dates else sig_text
 
                         # Truncate if over 255 characters
-                        if len(full_sig) > 255:
+                        if len(full_sig) > 1000:
                             self.error_row(
                                 f"{row['ID']}|{patient_id}|{patient_key}",
                                 f"Sig is too long {len(full_sig)}: {full_sig}",
@@ -878,10 +878,12 @@ class Command(BaseCommand):
             self.log("🔄 UPDATE MODE ENABLED: Existing records will be updated instead of skipped")
 
         data = self.get_s3_file(self.s3_file, convert_csv=True)
+        #data = data[:1]
+        #data = dict([next(iter(data.items()))])
 
-        # self.done_records = self.get_s3_file(f"done_{self.data_type}.json", return_empty=True)
+        self.done_records = self.get_s3_file(f"done_{self.data_type}.json", return_empty=True)
         self.patient_map = self.get_s3_file("patient_ids_map.json", return_empty=True)
-        # self.note_map = self.get_s3_file("historical_note_map.json", return_empty=True)
+        self.note_map = self.get_s3_file("historical_note_map.json", return_empty=True)
 
         handlers = {
             "plan_command": lambda data: self.process_data_threaded(
@@ -988,4 +990,8 @@ class Command(BaseCommand):
 
 
 cmd = Command()
-cmd.handle("patients", s3_file="patients_diff_oct_update.csv", chunk_size=1000, max_workers=5, update=True)
+# cmd.handle("patients", s3_file="patients_update_oct_24.csv", chunk_size=100, max_workers=5, update=True)
+# cmd.handle("visual_exam_finding_command", s3_file="images_visual_exam_findings_oct_24.csv", chunk_size=100, max_workers=5, update=False)
+# cmd.handle("plan_command", s3_file='plan_notes_oct_24.json', chunk_size=100, max_workers=5, update=False)
+cmd.handle("medication_statement_command", s3_file="combined_medications_oct.json", chunk_size=1000, max_workers=5, update=False)
+
