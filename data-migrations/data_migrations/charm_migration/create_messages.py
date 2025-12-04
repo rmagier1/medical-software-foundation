@@ -36,8 +36,30 @@ class MessageLoader(MessageLoaderMixin):
             pass
 
 
+    def analyze_messages(self):
+
+
+        data = fetch_from_json(self.json_file)
+
+        choices = set()
+
+        for patient_id, messages in data.items():
+            for direction in ["sent", "received"]:
+                for m in messages[direction]:
+                    for attachment in m["message_details"]["message_detail"]["attachments"]:
+                        attachment_name = attachment["attachment_name"]
+                        if "." in attachment_name:
+                            file_ext = f".{attachment_name.split('.')[-1]}"
+                            if file_ext not in choices:
+                                print(file_ext)
+                                choices.add(file_ext)
+
+        for c in choices:
+            print(c)
+
 
 
 if __name__ == "__main__":
     loader = MessageLoader(environment='ways2well')
-    loader.make_json()
+    # loader.make_json()
+    loader.analyze_messages()

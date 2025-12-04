@@ -502,11 +502,144 @@ class CharmPatientAPI(APIMethodMixin):
         document_response = self.get(f"/api/ehr/v1/patients/{patient_id}/documents/{file_id}/file")
         return document_response.content
 
+    def fetch_message_attachment(self, attachment_id):
+        print(f"Fetching attachment id {attachment_id}")
+        attachment_response = self.get(f"/api/ehr/v1/messages/attachments/{attachment_id}")
+        breakpoint()
+
     def read_encounter(self, encounter_id):
         encounter_endpoint = "/api/ehr/v1/encounters/{encounter_id}"
         return self.get(
             encounter_endpoint.format(encounter_id=encounter_id)
         )
+
+    def fetch_procedures(self, patient_ids, file_path):
+        procedure_endpoint = "/api/ehr/v1/patients/{patient_id}/medicalhistory/procedure"
+        patient_procedures = fetch_from_json(file_path)
+        patient_count = 0
+        for patient_id in patient_ids:
+            patient_count += 1
+            if patient_id in patient_procedures:
+                continue
+            patient_cnt_msg = f"{patient_count} of {len(patient_ids)} patients"
+            print(f"Fetching medicalhistory procedures for patient id {patient_id} - {patient_cnt_msg}")
+
+            try:
+                procedure_response = self.get(
+                    procedure_endpoint.format(patient_id=patient_id)
+                )
+                response_data = procedure_response.json()
+                patient_procedures[patient_id] = response_data["data"]
+            # not sure why, but some patient IDs are throwing 500 errors
+            except APIException as e:
+                print("APIException - skipping")
+
+            if patient_count % 100 == 0:
+                write_to_json(file_path, patient_procedures)
+        write_to_json(file_path, patient_procedures)
+
+    def fetch_pastmedicalhistory(self, patient_ids, file_path):
+        pastmedicalhistory_endpoint = "/api/ehr/v1/patients/{patient_id}/medicalhistory/pastmedicalhistory"
+        patient_pastmedicalhistory = fetch_from_json(file_path)
+        patient_count = 0
+        for patient_id in patient_ids:
+            patient_count += 1
+            if patient_id in patient_pastmedicalhistory:
+                continue
+            patient_cnt_msg = f"{patient_count} of {len(patient_ids)} patients"
+            print(f"Fetching medicalhistory pastmedicalhistory for patient id {patient_id} - {patient_cnt_msg}")
+
+            pastmedicalhistory_response = self.get(
+                pastmedicalhistory_endpoint.format(patient_id=patient_id)
+            )
+            response_data = pastmedicalhistory_response.json()
+            patient_pastmedicalhistory[patient_id] = response_data["data"]
+            if patient_count % 100 == 0:
+                write_to_json(file_path, patient_pastmedicalhistory)
+        write_to_json(file_path, patient_pastmedicalhistory)
+
+    def fetch_family_history(self, patient_ids, file_path):
+        familyhistory_endpoint = "/api/ehr/v1/patients/{patient_id}/medicalhistory/familyhistory"
+        patient_familyhistory = fetch_from_json(file_path)
+        patient_count = 0
+        for patient_id in patient_ids:
+            patient_count += 1
+            if patient_id in patient_familyhistory:
+                continue
+            patient_cnt_msg = f"{patient_count} of {len(patient_ids)} patients"
+            print(f"Fetching medicalhistory familyhistory for patient id {patient_id} - {patient_cnt_msg}")
+            familyhistory_response = self.get(
+                familyhistory_endpoint.format(patient_id=patient_id)
+            )
+            response_data = familyhistory_response.json()
+            patient_familyhistory[patient_id] = response_data["data"]
+            if patient_count % 100 == 0:
+                write_to_json(file_path, patient_familyhistory)
+        write_to_json(file_path, patient_familyhistory)
+
+    def fetch_social_history(self, patient_ids, file_path):
+        socialhistory_endpoint = "/api/ehr/v1/patients/{patient_id}/medicalhistory/socialhistory"
+        patient_socialhistory = fetch_from_json(file_path)
+        patient_count = 0
+        for patient_id in patient_ids:
+            patient_count += 1
+            if patient_id in patient_socialhistory:
+                continue
+            patient_cnt_msg = f"{patient_count} of {len(patient_ids)} patients"
+            print(f"Fetching medicalhistory socialhistory for patient id {patient_id} - {patient_cnt_msg}")
+            familyhistory_response = self.get(
+                socialhistory_endpoint.format(patient_id=patient_id)
+            )
+            response_data = familyhistory_response.json()
+            patient_socialhistory[patient_id] = response_data["data"]
+            if patient_count % 100 == 0:
+                write_to_json(file_path, patient_socialhistory)
+        write_to_json(file_path, patient_socialhistory)
+
+    def fetch_appointments(self, facility_ids, file_path):
+        appointment_endpoint = "/api/ehr/v1/appointments"
+        appointments = fetch_from_json(file_path)
+        has_next_page = True
+        page = 1
+        while has_next_page is True:
+            print(f"Fetching Appointments page {page}")
+            appointment_response = self.get(
+                appointment_endpoint,
+                params={
+                    "start_date": "2018-01-01",
+                    "end_date": "2025-10-01",
+                    "facility_ids": ",".join(facility_ids),
+                    "sort_order": "A",
+                    "page": page
+                }
+            )
+            appointments_data = appointment_response.json()
+            appointments.extend(appointments_data["appointments"])
+            if appointments_data['page_context']['has_more_page'] == 'true':
+                page = page + 1
+            else:
+                has_next_page = False
+
+            if page % 10 == 0:
+                write_to_json(file_path, appointments)
+        write_to_json(file_path, appointments)
+
+    def fetch_facilities(self):
+        facilities_endpoint = "/api/ehr/v1/facilities"
+        facilities = []
+        has_next_page = True
+        while has_next_page is True:
+            facilities_response = self.get(
+                facilities_endpoint,
+                params={"page": page}
+            )
+            facilities_data = facilities_response.json()
+            facilities.extend(facilities_data["facilities"])
+            if facilities_data['page_context']['has_more_page'] == 'true':
+                page = page + 1
+            else:
+                has_next_page = False
+        return facilities
 
 
 class CharmFHIRAPI(APIMethodMixin):
@@ -682,3 +815,21 @@ class CharmFHIRAPI(APIMethodMixin):
             else:
                 page += 1
         return practitioner_list
+
+    def fetch_family_history(self):
+        family_history_list = []
+        has_next_page = True
+        page = 1
+        while has_next_page is True:
+            params = {"page": str(page)}
+            print(f"Fetching FamilyMemberHistory page {page}")
+            response = self.get("/FamilyMemberHistory", params=params)
+            response_data = response.json()
+
+            family_history_list.extend(response_data["entry"])
+
+            if not self.response_has_next_page(response_data):
+                has_next_page = False
+            else:
+                page += 1
+        return family_history_list
