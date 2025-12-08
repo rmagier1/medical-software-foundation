@@ -1,5 +1,6 @@
 import csv, json
 from collections import defaultdict
+import requests
 
 from data_migrations.utils import fetch_from_json, write_to_json
 from data_migrations.template_migration.utils import (
@@ -50,7 +51,8 @@ class PatientLoaderMixin(FileWriterMixin):
             "OTH": "OTH",
             "OTHER": "OTH",
             "UNK": "UNK",
-            "UNKNOWN": "UNK"
+            "UNKNOWN": "UNK",
+            "U": "UNK"
         }
 
         try:
@@ -79,6 +81,9 @@ class PatientLoaderMixin(FileWriterMixin):
         """
         validated_rows = []
         errors = defaultdict(list)
+        # Track patients by First Name, Last Name, Date of Birth for duplicate detection
+        patient_combinations = defaultdict(int)
+
         with open(self.csv_file, "r") as file:
             reader = csv.DictReader(file, delimiter=delimiter)
 
@@ -125,15 +130,19 @@ class PatientLoaderMixin(FileWriterMixin):
             for row in reader:
                 error = False
 
-                error_key = f"{row['First Name']} {row['Last Name']}"
+                first_name = row['First Name'].strip().lower()
+                last_name = row['Last Name'].strip().lower()
+                birth_date = row['Date of Birth'].strip()
+
+                # Create a unique key for this combination
+                error_key = f"{first_name} {last_name} {birth_date}"
                 # if we want to use a previous EMR identifier for the error key
                 if error_use_identifier:
-                    patient_identifier = ""
                     for j in range(1, 4):
-                        system = row.get(f'Identifier System {j}')
-                        value = row.get(f'Identifier Value {j}')
+                        system = row.get(f'Identifier System 1')
+                        value = row.get(f'Identifier Value 1')
                         if system and value and system == error_use_identifier:
-                            error_key = value
+                            error_key = f"{error_key} | {value}"
                             break
 
                 error_msg = validate_address(row)
@@ -149,8 +158,27 @@ class PatientLoaderMixin(FileWriterMixin):
                         errors[error_key].append(value)
                         error = True
 
+                # Check for duplicate patients based on First Name, Last Name, Date of Birth
+                patient_combinations[error_key] += 1
+
+                # If we've seen this combination before, mark as duplicate
+                if patient_combinations[error_key] > 1:
+                    error = True
+
                 if not error:
                     validated_rows.append(row)
+
+        # Add duplicate patient summary to errors
+        duplicate_summary = []
+        for patient_key, count in patient_combinations.items():
+            if count > 1:
+                duplicate_summary.append({
+                    'patient_identifier': patient_key,
+                    'duplicate_count': count
+                })
+
+        if duplicate_summary:
+            errors['DUPLICATE_PATIENTS_SUMMARY'] = duplicate_summary
 
         if errors:
             print(f"Some rows contained errors, please see {self.validation_error_file}.")
@@ -169,6 +197,14 @@ class PatientLoaderMixin(FileWriterMixin):
         """
         response = self.fumage_helper.search("Patient", {"identifier": f"{system}|{identifier}"})
         return response.json()
+
+    def load_patient_metadata(self, patient_key, metadata):
+        patient_metadata = {"patient": patient_key, "metadata": metadata}
+        return requests.post(
+            f"https://{self.environment}.canvasmedical.com/plugin-io/api/patient_metadata_management/bulk_upsert",
+            json=patient_metadata,
+            headers={"Authorization": self.simple_api_key}
+        )
 
 
     def load(self, validated_rows, system_unique_identifier, require_identifier=True):
@@ -298,5 +334,15 @@ class PatientLoaderMixin(FileWriterMixin):
                 if patient_identifier:
                     patient_map[patient_identifier] = patient_key
                     write_to_json(self.patient_map_file, patient_map)
+
+                    if row.get("Metadata"):
+                        patient_metadata = json.loads(row["Metadata"])
+                        if patient_metadata:
+                            print(f"Uploading metadata for patient {patient_key}")
+                            metadata_response = self.load_patient_metadata(patient_key, patient_metadata)
+                            if metadata_response.status_code != 202:
+                                print("Failed metadata upload - please investigate")
+                                print(metadata_response)
+                                return
             except Exception as e:
                 self.error_row(f"{patient_identifier}|{row['First Name']}|{row['Last Name']}", e)

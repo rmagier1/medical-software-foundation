@@ -28,6 +28,10 @@ def write_to_json(filename, data):
     """
         Write a dict to a JSON file
     """
+    directory = os.path.dirname(filename)
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory)
+
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
     print(f"Successfully created {filename}")
@@ -129,6 +133,12 @@ def load_fhir_settings(environment):
 
     fumage = FHIRHelper({'INSTANCE_NAME': environment, 'CLIENT_ID': client_id, 'CLIENT_SECRET': client_secret})
     return fumage
+
+def load_simple_api_key(environment) -> str:
+    ini = RepositoryIni('../config.ini')
+    ini.SECTION = environment
+    config = Config(ini)
+    return config("simpleapi-api-key", cast=str)
 
 class FHIRHelper:
     """
